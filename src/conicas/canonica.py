@@ -201,6 +201,13 @@ def _canonica_circunferencia(A, C, D, E):
     # ------------------------------------------------------------------
     h = -mitad_x    # Centro en x
     k = -mitad_y    # Centro en y
+    if r2 < 0:
+        return {
+            "forma_canonica": "No existe forma canonica real.",
+            "radio_cuadrado": r2,
+            "pasos": "\n".join(pasos)
+        }
+
     r = r2 ** 0.5   # Radio
 
     termino_x = formatear_termino_x(h)
@@ -365,5 +372,108 @@ def _canonica_elipse(A, B, C, D, E):
         "centro": (h, k),
         "a_cuadrado": a2,
         "b_cuadrado": b2,
+        "pasos": "\n".join(pasos)
+    }
+
+
+# =============================================================================
+# HIPERBOLA
+# =============================================================================
+
+def _canonica_hiperbola(A, B, C, D, E):
+    """
+    Transforma Ax² + By² + Cx + Dy + E = 0 a una forma canonica de hipérbola.
+    """
+
+    pasos = []
+    pasos.append("=== Transformacion a forma canonica: Hiperbola ===")
+    pasos.append("")
+    pasos.append("Ecuacion general:")
+    pasos.append(f"  {formatear_num(A)}x² + {formatear_num(B)}y² + {formatear_num(C)}x + {formatear_num(D)}y + {formatear_num(E)} = 0")
+    pasos.append("")
+
+    h = -C / (2 * A) if A != 0 else 0
+    k = -D / (2 * B) if B != 0 else 0
+
+    constante_x = (C ** 2) / (4 * A) if A != 0 else 0
+    constante_y = (D ** 2) / (4 * B) if B != 0 else 0
+    K = constante_x + constante_y - E
+
+    pasos.append("Paso 1: Completar cuadrados en x e y.")
+    pasos.append(f"  Centro trasladado: ({formatear_num(h)}, {formatear_num(k)})")
+    pasos.append(f"  Constante resultante: K = {formatear_num(K)}")
+    pasos.append("")
+
+    termino_x = formatear_termino_x(h)
+    termino_y = formatear_termino_y(k)
+
+    denominador_x = K / A
+    denominador_y = K / B
+
+    if denominador_x > 0:
+        a2 = denominador_x
+        b2 = -denominador_y
+        forma_canonica = f"{termino_x}² / {formatear_num(a2)} - {termino_y}² / {formatear_num(b2)} = 1"
+        orientacion = "horizontal"
+    else:
+        a2 = denominador_y
+        b2 = -denominador_x
+        forma_canonica = f"{termino_y}² / {formatear_num(a2)} - {termino_x}² / {formatear_num(b2)} = 1"
+        orientacion = "vertical"
+
+    pasos.append("Paso 2: Dividir por la constante para llevar la ecuacion a 1.")
+    pasos.append(f"  Forma canonica final: {forma_canonica}")
+
+    return {
+        "forma_canonica": forma_canonica,
+        "centro": (h, k),
+        "a_cuadrado": a2,
+        "b_cuadrado": b2,
+        "orientacion": orientacion,
+        "pasos": "\n".join(pasos)
+    }
+
+
+# =============================================================================
+# PARABOLA
+# =============================================================================
+
+def _canonica_parabola(A, B, C, D, E):
+    """
+    Transforma Ax² + By² + Cx + Dy + E = 0 a una forma canonica de parábola.
+    """
+
+    pasos = []
+    pasos.append("=== Transformacion a forma canonica: Parabola ===")
+    pasos.append("")
+    pasos.append("Ecuacion general:")
+    pasos.append(f"  {formatear_num(A)}x² + {formatear_num(B)}y² + {formatear_num(C)}x + {formatear_num(D)}y + {formatear_num(E)} = 0")
+    pasos.append("")
+
+    if A == 0 and B != 0:
+        k = -D / (2 * B)
+        h = (((D ** 2) / (4 * B)) - E) / C
+        vertice = (h, k)
+        p = -C / B
+        termino_y = formatear_termino_y(vertice[1])
+        termino_x = formatear_termino_x(vertice[0])
+        forma_canonica = f"{termino_y}² = {formatear_num(p)}{termino_x}"
+    else:
+        h = -C / (2 * A)
+        k = (((C ** 2) / (4 * A)) - E) / D
+        vertice = (h, k)
+        p = -D / A
+        termino_x = formatear_termino_x(vertice[0])
+        termino_y = formatear_termino_y(vertice[1])
+        forma_canonica = f"{termino_x}² = {formatear_num(p)}{termino_y}"
+
+    pasos.append("Paso 1: Completar el cuadrado en la variable cuadratica.")
+    pasos.append(f"  Vertice: ({formatear_num(vertice[0])}, {formatear_num(vertice[1])})")
+    pasos.append(f"  Forma canonica final: {forma_canonica}")
+
+    return {
+        "forma_canonica": forma_canonica,
+        "vertice": vertice,
+        "p": p,
         "pasos": "\n".join(pasos)
     }
