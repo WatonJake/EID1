@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox, ttk
 from tkinter.scrolledtext import ScrolledText
+import customtkinter as ctk
 
 from src.conicas.canonica import transformar_a_canonica
 from src.conicas.clasificador_conica import clasificar_conica
@@ -24,10 +25,22 @@ from src.utilidades.matematica_manual import (
 
 class App:
     def __init__(self):
-        self.root = tk.Tk()
+        ctk.set_appearance_mode("System")
+        ctk.set_default_color_theme("blue")
+        self.root = ctk.CTk()
         self.root.title("Sistema de análisis matemático")
         self.root.geometry("1360x860")
         self.root.minsize(1180, 760)
+
+        self.current_reporte_conica = None
+        self.current_datos_canonica = None
+        self.current_analisis_funcion = None
+        self.current_conica_limites = None
+        self.current_funcion_limites = None
+        self.drag_start = {
+            "conica": None,
+            "funcion": None,
+        }
 
         self._crear_estilos()
         self._crear_interfaz()
@@ -36,65 +49,59 @@ class App:
         self.root.mainloop()
 
     def _crear_estilos(self):
-        estilo = ttk.Style()
-        estilo.theme_use("clam")
-        estilo.configure("TFrame", background="#f4f1ea")
-        estilo.configure("Card.TFrame", background="#fffdf8", relief="flat")
-        estilo.configure("TLabel", background="#f4f1ea", foreground="#2d241d")
-        estilo.configure("Title.TLabel", font=("Segoe UI Semibold", 18), foreground="#1f1a17")
-        estilo.configure("Subtitle.TLabel", font=("Segoe UI Semibold", 11), foreground="#4e4035")
-        estilo.configure("TButton", font=("Segoe UI Semibold", 10))
-        estilo.configure("Treeview", font=("Consolas", 10), rowheight=24)
-        estilo.configure("Treeview.Heading", font=("Segoe UI Semibold", 10))
+        # customtkinter global appearance
+        ctk.set_appearance_mode("System")
+        ctk.set_default_color_theme("blue")
 
     def _crear_interfaz(self):
-        contenedor = ttk.Frame(self.root, padding=16)
-        contenedor.pack(fill="both", expand=True)
+        contenedor = ctk.CTkFrame(self.root, corner_radius=8)
+        contenedor.pack(fill="both", expand=True, padx=16, pady=16)
         contenedor.columnconfigure(0, weight=1)
         contenedor.rowconfigure(2, weight=1)
 
-        encabezado = ttk.Frame(contenedor)
+        encabezado = ctk.CTkFrame(contenedor, fg_color="transparent")
         encabezado.grid(row=0, column=0, sticky="ew")
         encabezado.columnconfigure(1, weight=1)
-
-        ttk.Label(
+        ctk.CTkLabel(
             encabezado,
             text="Sistema de análisis de cónicas y funciones por tramos",
-            style="Title.TLabel",
+            text_color="#1f1a17",
+            font=("Segoe UI Semibold", 18),
         ).grid(row=0, column=0, columnspan=4, sticky="w")
-        ttk.Label(
+        ctk.CTkLabel(
             encabezado,
             text="La interfaz expone validación, procedimiento algebraico, forma canónica, gráfica y espacios de defensa.",
-            style="Subtitle.TLabel",
+            text_color="#4e4035",
+            font=("Segoe UI Semibold", 11),
         ).grid(row=1, column=0, columnspan=4, sticky="w", pady=(4, 14))
 
-        ttk.Label(encabezado, text="RUT:").grid(row=2, column=0, sticky="w")
+        ctk.CTkLabel(encabezado, text="RUT:").grid(row=2, column=0, sticky="w")
         self.rut_var = tk.StringVar()
-        ttk.Entry(encabezado, textvariable=self.rut_var, width=24).grid(
+        ctk.CTkEntry(encabezado, textvariable=self.rut_var, width=220).grid(
             row=2, column=1, sticky="w", padx=(8, 10)
         )
-        ttk.Button(encabezado, text="Analizar", command=self._analizar).grid(
+        ctk.CTkButton(encabezado, text="Analizar", command=self._analizar).grid(
             row=2, column=2, sticky="w"
         )
 
         self.estado_var = tk.StringVar(value="Ingrese un RUT válido para generar el análisis.")
-        ttk.Label(encabezado, textvariable=self.estado_var).grid(
-            row=2, column=3, sticky="e"
-        )
+        ctk.CTkLabel(encabezado, textvariable=self.estado_var).grid(row=2, column=3, sticky="e")
 
-        resumen_card = ttk.Frame(contenedor, style="Card.TFrame", padding=10)
-        resumen_card.grid(row=1, column=0, sticky="ew", pady=(14, 14))
+        resumen_card = ctk.CTkFrame(contenedor, fg_color="#fffdf8", corner_radius=6)
+        resumen_card.grid(row=1, column=0, sticky="ew", pady=(14, 14), padx=(0, 0))
         resumen_card.columnconfigure(0, weight=1)
-        ttk.Label(
+        ctk.CTkLabel(
             resumen_card,
             text="Resumen de resultados",
-            style="Subtitle.TLabel",
+            text_color="#4e4035",
+            font=("Segoe UI Semibold", 11),
         ).grid(row=0, column=0, sticky="w", pady=(0, 8))
-        self.resumen_label = ttk.Label(
+        self.resumen_label = ctk.CTkLabel(
             resumen_card,
             text="Sin análisis ejecutado.",
-            background="#fffdf8",
-            justify="left",
+            text_color="#2d241d",
+            wraplength=1000,
+            anchor="w",
         )
         self.resumen_label.grid(row=1, column=0, sticky="ew")
 
@@ -139,7 +146,7 @@ class App:
         )
         self.texto_conicas.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
 
-        panel_derecho = ttk.Frame(self.tab_conicas)
+        panel_derecho = ctk.CTkFrame(self.tab_conicas, fg_color="transparent")
         panel_derecho.grid(row=0, column=1, sticky="nsew")
         panel_derecho.columnconfigure(0, weight=1)
         panel_derecho.rowconfigure(0, weight=3)
@@ -154,14 +161,18 @@ class App:
             highlightbackground="#cbbca8",
         )
         self.canvas_conica.grid(row=0, column=0, sticky="nsew")
+        self.canvas_conica.bind("<Configure>", self._on_canvas_conica_resize)
+        self.canvas_conica.bind("<ButtonPress-1>", lambda event: self._inicio_arrastre(event, "conica"))
+        self.canvas_conica.bind("<B1-Motion>", lambda event: self._mover_arrastre(event, "conica"))
+        self.canvas_conica.bind("<ButtonRelease-1>", lambda event: self._finalizar_arrastre(event, "conica"))
+        self.canvas_conica.bind("<MouseWheel>", lambda event: self._zoom(event, "conica"))
+        self.canvas_conica.bind("<Button-4>", lambda event: self._zoom(event, "conica"))
+        self.canvas_conica.bind("<Button-5>", lambda event: self._zoom(event, "conica"))
 
-        self.frame_inputs_conica = ttk.LabelFrame(
-            panel_derecho,
-            text="Campos para completar durante la defensa",
-            padding=10,
-        )
-        self.frame_inputs_conica.grid(row=1, column=0, sticky="nsew", pady=(10, 0))
+        self.frame_inputs_conica = ctk.CTkFrame(panel_derecho, fg_color="#fffdf8", corner_radius=6)
+        self.frame_inputs_conica.grid(row=1, column=0, sticky="nsew", pady=(10, 0), padx=(0, 0))
         self.frame_inputs_conica.columnconfigure(1, weight=1)
+        ctk.CTkLabel(self.frame_inputs_conica, text="Campos para completar durante la defensa", font=("Segoe UI Semibold", 11), text_color="#4e4035").grid(row=0, column=0, columnspan=2, sticky="w", pady=(0,8))
 
     def _crear_tab_funciones(self):
         self.tab_funciones.columnconfigure(0, weight=3)
@@ -177,7 +188,7 @@ class App:
         )
         self.texto_funciones.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
 
-        panel_derecho = ttk.Frame(self.tab_funciones)
+        panel_derecho = ctk.CTkFrame(self.tab_funciones, fg_color="transparent")
         panel_derecho.grid(row=0, column=1, sticky="nsew")
         panel_derecho.columnconfigure(0, weight=1)
         panel_derecho.rowconfigure(0, weight=3)
@@ -193,14 +204,18 @@ class App:
             highlightbackground="#cbbca8",
         )
         self.canvas_funcion.grid(row=0, column=0, sticky="nsew")
+        self.canvas_funcion.bind("<Configure>", self._on_canvas_funcion_resize)
+        self.canvas_funcion.bind("<ButtonPress-1>", lambda event: self._inicio_arrastre(event, "funcion"))
+        self.canvas_funcion.bind("<B1-Motion>", lambda event: self._mover_arrastre(event, "funcion"))
+        self.canvas_funcion.bind("<ButtonRelease-1>", lambda event: self._finalizar_arrastre(event, "funcion"))
+        self.canvas_funcion.bind("<MouseWheel>", lambda event: self._zoom(event, "funcion"))
+        self.canvas_funcion.bind("<Button-4>", lambda event: self._zoom(event, "funcion"))
+        self.canvas_funcion.bind("<Button-5>", lambda event: self._zoom(event, "funcion"))
 
-        self.frame_inputs_funcion = ttk.LabelFrame(
-            panel_derecho,
-            text="Campos para completar durante la defensa",
-            padding=10,
-        )
-        self.frame_inputs_funcion.grid(row=1, column=0, sticky="nsew", pady=(10, 10))
+        self.frame_inputs_funcion = ctk.CTkFrame(panel_derecho, fg_color="#fffdf8", corner_radius=6)
+        self.frame_inputs_funcion.grid(row=1, column=0, sticky="nsew", pady=(10, 10), padx=(0,0))
         self.frame_inputs_funcion.columnconfigure(1, weight=1)
+        ctk.CTkLabel(self.frame_inputs_funcion, text="Campos para completar durante la defensa", font=("Segoe UI Semibold", 11), text_color="#4e4035").grid(row=0, column=0, columnspan=2, sticky="w", pady=(0,8))
 
         self.tabla_valores = ttk.Treeview(
             panel_derecho,
@@ -248,7 +263,7 @@ class App:
             )
             analisis_funcion = self._analizar_funcion_por_tramos(datos_rut)
 
-            self.resumen_label.config(
+            self.resumen_label.configure(
                 text=self._construir_resumen_general(
                     resultado_rut,
                     datos_rut,
@@ -331,13 +346,17 @@ class App:
                 ],
             )
             self._actualizar_tabla(analisis_funcion["tabla"])
+
+            self.current_reporte_conica = reporte_conica
+            self.current_datos_canonica = datos_canonica
+            self.current_analisis_funcion = analisis_funcion
         except Exception as error:
             self.estado_var.set("Se produjo un error al procesar el análisis.")
             messagebox.showerror("Error de análisis", str(error))
 
     def _cargar_estado_invalido(self, texto_validacion):
         self.estado_var.set("RUT inválido. Revise formato y dígito verificador.")
-        self.resumen_label.config(text="No se pudo continuar con el análisis matemático.")
+        self.resumen_label.configure(text="No se pudo continuar con el análisis matemático.")
         self._escribir_texto(self.texto_resumen, texto_validacion)
         self._escribir_texto(self.texto_conicas, "Sin datos de cónicas.")
         self._escribir_texto(self.texto_funciones, "Sin datos de funciones por tramos.")
@@ -799,6 +818,7 @@ class App:
 
         puntos = []
         lineas = []
+        limites_por_defecto = None
 
         if tipo_conica == "Circunferencia":
             h, k = datos_canonica["centro"]
@@ -806,7 +826,7 @@ class App:
             for indice in range(181):
                 angulo = (indice * PI) / 90
                 puntos.append((h + (r * coseno(angulo)), k + (r * seno(angulo))))
-            limites = (h - r - 2, h + r + 2, k - r - 2, k + r + 2)
+            limites_por_defecto = (h - r - 2, h + r + 2, k - r - 2, k + r + 2)
 
         elif tipo_conica == "Elipse":
             h, k = datos_canonica["centro"]
@@ -815,7 +835,7 @@ class App:
             for indice in range(181):
                 angulo = (indice * PI) / 90
                 puntos.append((h + (a * coseno(angulo)), k + (b * seno(angulo))))
-            limites = (h - a - 2, h + a + 2, k - b - 2, k + b + 2)
+            limites_por_defecto = (h - a - 2, h + a + 2, k - b - 2, k + b + 2)
 
         elif tipo_conica == "Hiperbola":
             h, k = datos_canonica["centro"]
@@ -846,7 +866,7 @@ class App:
                 pendiente = a / b
             for signo in (-1, 1):
                 lineas.append(((h - 8, k + (signo * pendiente * -8)), (h + 8, k + (signo * pendiente * 8))))
-            limites = (h - 8, h + 8, k - 8, k + 8)
+            limites_por_defecto = (h - 8, h + 8, k - 8, k + 8)
 
         elif tipo_conica == "Parabola":
             vertice = datos_canonica["vertice"]
@@ -868,13 +888,15 @@ class App:
                 directriz_x = vertice[0] - (p / 4)
                 lineas.append(((directriz_x, vertice[1] - 8), (directriz_x, vertice[1] + 8)))
             puntos = curva
-            limites = (vertice[0] - 8, vertice[0] + 8, vertice[1] - 8, vertice[1] + 8)
+            limites_por_defecto = (vertice[0] - 8, vertice[0] + 8, vertice[1] - 8, vertice[1] + 8)
         else:
             self._reiniciar_canvas(canvas, "Cónica no disponible")
             return
 
+        limites = self.current_conica_limites if self.current_conica_limites is not None else limites_por_defecto
         mapper = self._crear_transformador(canvas, limites)
         self._dibujar_ejes(canvas, mapper, limites, width, height)
+        self.current_conica_limites = limites
 
         for linea in lineas:
             x1, y1 = mapper(*linea[0])
@@ -901,7 +923,9 @@ class App:
         canvas.delete("all")
         a = analisis_funcion["punto_critico"]
         tipo = analisis_funcion["funcion_info"]["tipo_discontinuidad"]
-        limites = (a - 4, a + 4, -8, 12)
+        limites = self.current_funcion_limites if self.current_funcion_limites is not None else (a - 4, a + 4, -8, 12)
+        if self.current_funcion_limites is None:
+            self.current_funcion_limites = limites
         mapper = self._crear_transformador(canvas, limites)
         self._dibujar_ejes(canvas, mapper, limites, int(canvas["width"]), int(canvas["height"]))
 
@@ -954,6 +978,148 @@ class App:
             font=("Segoe UI Semibold", 10),
         )
 
+    def _on_canvas_conica_resize(self, event):
+        if self.current_reporte_conica and self.current_datos_canonica:
+            self.canvas_conica.config(width=event.width, height=event.height)
+            self._dibujar_conica(self.current_reporte_conica.tipo_conica, self.current_datos_canonica)
+
+    def _on_canvas_funcion_resize(self, event):
+        if self.current_analisis_funcion:
+            self.canvas_funcion.config(width=event.width, height=event.height)
+            self._dibujar_funcion(self.current_analisis_funcion)
+
+    def _pixel_a_coordenada(self, canvas, px, py, limites):
+        xmin, xmax, ymin, ymax = limites
+        width = int(canvas["width"])
+        height = int(canvas["height"])
+        padding = 35
+        x = xmin + ((px - padding) / (width - 2 * padding)) * (xmax - xmin)
+        y = ymax - ((py - padding) / (height - 2 * padding)) * (ymax - ymin)
+        return x, y
+
+    def _inicio_arrastre(self, event, tipo):
+        if tipo == "conica":
+            limites = self.current_conica_limites
+        else:
+            limites = self.current_funcion_limites
+        if limites is None:
+            return
+        self.drag_start[tipo] = {
+            "x": event.x,
+            "y": event.y,
+            "limites": limites,
+        }
+
+    def _mover_arrastre(self, event, tipo):
+        estado = self.drag_start.get(tipo)
+        if not estado:
+            return
+        limites = estado["limites"]
+        dx = event.x - estado["x"]
+        dy = event.y - estado["y"]
+        width = int(self.canvas_conica["width"]) if tipo == "conica" else int(self.canvas_funcion["width"])
+        height = int(self.canvas_conica["height"]) if tipo == "conica" else int(self.canvas_funcion["height"])
+        padding = 35
+        rango_x = limites[1] - limites[0]
+        rango_y = limites[3] - limites[2]
+
+        desplazamiento_x = -dx * rango_x / (width - 2 * padding)
+        desplazamiento_y = dy * rango_y / (height - 2 * padding)
+
+        nuevos_limites = (
+            limites[0] + desplazamiento_x,
+            limites[1] + desplazamiento_x,
+            limites[2] + desplazamiento_y,
+            limites[3] + desplazamiento_y,
+        )
+
+        if tipo == "conica":
+            self.current_conica_limites = nuevos_limites
+            self._dibujar_conica(self.current_reporte_conica.tipo_conica, self.current_datos_canonica)
+        else:
+            self.current_funcion_limites = nuevos_limites
+            self._dibujar_funcion(self.current_analisis_funcion)
+
+    def _finalizar_arrastre(self, event, tipo):
+        estado = self.drag_start.get(tipo)
+        if not estado:
+            return
+        dx = event.x - estado["x"]
+        dy = event.y - estado["y"]
+        distancia = dx * dx + dy * dy
+        if distancia <= 9:
+            self._recentrar_por_click(event, tipo)
+        self.drag_start[tipo] = None
+
+    def _recentrar_por_click(self, event, tipo):
+        limites = self.current_conica_limites if tipo == "conica" else self.current_funcion_limites
+        if limites is None:
+            return
+        canvas = self.canvas_conica if tipo == "conica" else self.canvas_funcion
+        x_click, y_click = self._pixel_a_coordenada(canvas, event.x, event.y, limites)
+        x_centro = (limites[0] + limites[1]) / 2
+        y_centro = (limites[2] + limites[3]) / 2
+        dx = x_click - x_centro
+        dy = y_click - y_centro
+        nuevos_limites = (
+            limites[0] + dx,
+            limites[1] + dx,
+            limites[2] + dy,
+            limites[3] + dy,
+        )
+        if tipo == "conica":
+            self.current_conica_limites = nuevos_limites
+            self._dibujar_conica(self.current_reporte_conica.tipo_conica, self.current_datos_canonica)
+        else:
+            self.current_funcion_limites = nuevos_limites
+            self._dibujar_funcion(self.current_analisis_funcion)
+
+    def _zoom(self, event, tipo):
+        if tipo == "conica":
+            limites = self.current_conica_limites
+            canvas = self.canvas_conica
+        else:
+            limites = self.current_funcion_limites
+            canvas = self.canvas_funcion
+        if limites is None:
+            return
+
+        if hasattr(event, 'delta') and event.delta != 0:
+            delta = event.delta
+        elif event.num == 4:
+            delta = 120
+        elif event.num == 5:
+            delta = -120
+        else:
+            return
+
+        zoom_factor = 1.1 if delta > 0 else 0.9
+        x_mouse, y_mouse = self._pixel_a_coordenada(canvas, event.x, event.y, limites)
+
+        xmin, xmax, ymin, ymax = limites
+        ancho = xmax - xmin
+        alto = ymax - ymin
+
+        nuevo_ancho = ancho / zoom_factor
+        nuevo_alto = alto / zoom_factor
+
+        x_rel = (x_mouse - xmin) / ancho if ancho != 0 else 0.5
+        y_rel = (y_mouse - ymin) / alto if alto != 0 else 0.5
+
+        nuevo_xmin = x_mouse - x_rel * nuevo_ancho
+        nuevo_xmax = nuevo_xmin + nuevo_ancho
+        nuevo_ymin = y_mouse - y_rel * nuevo_alto
+        nuevo_ymax = nuevo_ymin + nuevo_alto
+
+        nuevos_limites = (nuevo_xmin, nuevo_xmax, nuevo_ymin, nuevo_ymax)
+
+        if tipo == "conica":
+            self.current_conica_limites = nuevos_limites
+            self._dibujar_conica(self.current_reporte_conica.tipo_conica, self.current_datos_canonica)
+        else:
+            self.current_funcion_limites = nuevos_limites
+            self._dibujar_funcion(self.current_analisis_funcion)
+
     def _crear_transformador(self, canvas, limites):
         xmin, xmax, ymin, ymax = limites
         width = int(canvas["width"])
@@ -967,14 +1133,102 @@ class App:
 
         return transformar
 
+    def _paso_cuadricula(self, rango):
+        if rango <= 0:
+            return 1
+
+        pasos_objetivo = 8
+        paso = rango / pasos_objetivo
+        escala = 1
+        while escala * 10 <= paso:
+            escala *= 10
+
+        if paso <= escala:
+            return escala
+        if paso <= escala * 2:
+            return escala * 2
+        if paso <= escala * 5:
+            return escala * 5
+        return escala * 10
+
+    def _alinear_hacia_abajo(self, valor, paso):
+        if paso == 0:
+            return valor
+        numerador = valor / paso
+        entero = int(numerador)
+        while entero * paso > valor:
+            entero -= 1
+        return entero * paso
+
+    def _alinear_hacia_arriba(self, valor, paso):
+        if paso == 0:
+            return valor
+        numerador = valor / paso
+        entero = int(numerador)
+        while entero * paso < valor:
+            entero += 1
+        return entero * paso
+
     def _dibujar_ejes(self, canvas, mapper, limites, width, height):
         xmin, xmax, ymin, ymax = limites
+        paso_x = self._paso_cuadricula(xmax - xmin)
+        paso_y = self._paso_cuadricula(ymax - ymin)
+        x_inicio = self._alinear_hacia_abajo(xmin, paso_x)
+        x_final = self._alinear_hacia_arriba(xmax, paso_x)
+        y_inicio = self._alinear_hacia_abajo(ymin, paso_y)
+        y_final = self._alinear_hacia_arriba(ymax, paso_y)
         cero_x, cero_y = mapper(0, 0)
 
+        linea_x = x_inicio
+        while linea_x <= x_final + 1e-9:
+            px1, py1 = mapper(linea_x, ymin)
+            px2, py2 = mapper(linea_x, ymax)
+            es_eje_y = abs(linea_x) < 1e-9
+            color = "#e7dfd1" if not es_eje_y else "#c7b8a4"
+            width_line = 1 if not es_eje_y else 2
+            canvas.create_line(px1, py1, px2, py2, fill=color, width=width_line)
+
+            if ymin <= 0 <= ymax:
+                label_y = cero_y + 14 if cero_y + 14 < height - 12 else height - 12
+            else:
+                label_y = height - 12
+            canvas.create_text(
+                px1 + 2,
+                label_y,
+                text=self._formatear_numero_etiqueta(linea_x, paso_x),
+                fill="#6f6154",
+                font=("Segoe UI", 8),
+                anchor="n",
+            )
+            linea_x += paso_x
+
+        linea_y = y_inicio
+        while linea_y <= y_final + 1e-9:
+            px1, py1 = mapper(xmin, linea_y)
+            px2, py2 = mapper(xmax, linea_y)
+            es_eje_x = abs(linea_y) < 1e-9
+            color = "#e7dfd1" if not es_eje_x else "#c7b8a4"
+            width_line = 1 if not es_eje_x else 2
+            canvas.create_line(px1, py1, px2, py2, fill=color, width=width_line)
+
+            if xmin <= 0 <= xmax:
+                label_x = cero_x + 12 if cero_x + 12 < width - 12 else width - 12
+            else:
+                label_x = 12
+            canvas.create_text(
+                label_x,
+                py2 - 2,
+                text=self._formatear_numero_etiqueta(linea_y, paso_y),
+                fill="#6f6154",
+                font=("Segoe UI", 8),
+                anchor="w",
+            )
+            linea_y += paso_y
+
         if xmin <= 0 <= xmax:
-            canvas.create_line(cero_x, 18, cero_x, height - 18, fill="#c7b8a4")
+            canvas.create_line(cero_x, 18, cero_x, height - 18, fill="#7a6a55", width=2)
         if ymin <= 0 <= ymax:
-            canvas.create_line(18, cero_y, width - 18, cero_y, fill="#c7b8a4")
+            canvas.create_line(18, cero_y, width - 18, cero_y, fill="#7a6a55", width=2)
 
         canvas.create_rectangle(8, 8, width - 8, height - 8, outline="#d7cab7")
 
@@ -1005,9 +1259,9 @@ class App:
         for child in frame.winfo_children():
             child.destroy()
 
-        for fila, etiqueta in enumerate(etiquetas):
-            ttk.Label(frame, text=etiqueta).grid(row=fila, column=0, sticky="w", pady=4)
-            ttk.Entry(frame, width=46).grid(row=fila, column=1, sticky="ew", padx=(10, 0), pady=4)
+        for fila, etiqueta in enumerate(etiquetas, start=1):
+            ctk.CTkLabel(frame, text=etiqueta, text_color="#2d241d").grid(row=fila, column=0, sticky="w", pady=4)
+            ctk.CTkEntry(frame, width=400).grid(row=fila, column=1, sticky="ew", padx=(10, 0), pady=4)
 
     def _actualizar_tabla(self, filas):
         for item in self.tabla_valores.get_children():
@@ -1088,6 +1342,13 @@ class App:
         if float(numero).is_integer():
             return str(int(numero))
         return f"{numero:.4f}"
+
+    def _formatear_numero_etiqueta(self, numero, paso):
+        if isinstance(numero, str):
+            return numero
+        if float(paso).is_integer():
+            return str(int(round(numero)))
+        return f"{numero:.1f}"
 
     def _formatear_punto(self, punto):
         return f"({self._formatear_numero(punto[0])}, {self._formatear_numero(punto[1])})"
