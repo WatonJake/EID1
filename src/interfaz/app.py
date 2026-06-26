@@ -1,6 +1,5 @@
 import tkinter as tk
 from tkinter import messagebox, ttk
-from tkinter.scrolledtext import ScrolledText
 import customtkinter as ctk
 
 from src.conicas.canonica import transformar_a_canonica
@@ -37,10 +36,27 @@ class App:
         self.current_analisis_funcion = None
         self.current_conica_limites = None
         self.current_funcion_limites = None
+        self.grafico_conica_expandido = True
+        self.grafico_funcion_expandido = True
+        self.tabla_apoyo_expandida = True
         self.drag_start = {
             "conica": None,
             "funcion": None,
         }
+        self.colores = {
+            "fondo": "#f4efe7",
+            "panel": "#fbf8f2",
+            "panel_alt": "#f1e7d8",
+            "borde": "#d9c8b5",
+            "texto": "#201a16",
+            "texto_sec": "#6a5748",
+            "acento": "#b65a2e",
+            "acento_oscuro": "#8f4522",
+            "exito": "#2f7d4a",
+            "error": "#b43f3f",
+            "aviso": "#c98a1d",
+        }
+        self.metricas = {}
 
         self._crear_estilos()
         self._crear_interfaz()
@@ -49,19 +65,39 @@ class App:
         self.root.mainloop()
 
     def _crear_estilos(self):
-        # customtkinter global appearance
         ctk.set_appearance_mode("System")
         ctk.set_default_color_theme("blue")
+        self.root.configure(fg_color=self.colores["fondo"])
+        estilo = ttk.Style()
+        estilo.theme_use("default")
+        estilo.configure("TNotebook", background=self.colores["fondo"], borderwidth=0)
+        estilo.configure("TNotebook.Tab", padding=(16, 8), font=("Segoe UI Semibold", 10))
+        estilo.configure(
+            "Treeview",
+            background="#fffdfa",
+            fieldbackground="#fffdfa",
+            foreground=self.colores["texto"],
+            rowheight=28,
+            bordercolor=self.colores["borde"],
+        )
+        estilo.configure("Treeview.Heading", font=("Segoe UI Semibold", 10))
 
     def _crear_interfaz(self):
-        contenedor = ctk.CTkFrame(self.root, corner_radius=8)
+        contenedor = ctk.CTkFrame(self.root, corner_radius=0, fg_color="transparent")
         contenedor.pack(fill="both", expand=True, padx=16, pady=16)
         contenedor.columnconfigure(0, weight=1)
-        contenedor.rowconfigure(2, weight=1)
+        contenedor.rowconfigure(3, weight=1)
 
-        encabezado = ctk.CTkFrame(contenedor, fg_color="transparent")
+        encabezado = ctk.CTkFrame(
+            contenedor,
+            fg_color=self.colores["panel_alt"],
+            corner_radius=18,
+            border_width=1,
+            border_color=self.colores["borde"],
+        )
         encabezado.grid(row=0, column=0, sticky="ew")
         encabezado.columnconfigure(1, weight=1)
+        encabezado.columnconfigure(4, weight=1)
         ctk.CTkLabel(
             encabezado,
             text="Sistema de análisis de cónicas y funciones por tramos",
@@ -71,7 +107,7 @@ class App:
         ctk.CTkLabel(
             encabezado,
             text="La interfaz expone validación, procedimiento algebraico, forma canónica, gráfica y espacios de defensa.",
-            text_color="#4e4035",
+            text_color=self.colores["texto"],
             font=("Segoe UI Semibold", 11),
         ).grid(row=1, column=0, columnspan=4, sticky="w", pady=(4, 14))
 
@@ -87,26 +123,129 @@ class App:
         self.estado_var = tk.StringVar(value="Ingrese un RUT válido para generar el análisis.")
         ctk.CTkLabel(encabezado, textvariable=self.estado_var).grid(row=2, column=3, sticky="e")
 
-        resumen_card = ctk.CTkFrame(contenedor, fg_color="#fffdf8", corner_radius=6)
-        resumen_card.grid(row=1, column=0, sticky="ew", pady=(14, 14), padx=(0, 0))
+        widgets_encabezado = encabezado.winfo_children()
+        titulo_label = widgets_encabezado[0]
+        subtitulo_label = widgets_encabezado[1]
+        rut_label = widgets_encabezado[2]
+        self.rut_entry = widgets_encabezado[3]
+        boton_analizar = widgets_encabezado[4]
+        self.estado_badge = widgets_encabezado[5]
+
+        encabezado.columnconfigure(4, weight=1)
+        titulo_label.configure(
+            text="Explorador de canonicas y funciones",
+            text_color=self.colores["texto"],
+            font=("Georgia", 28, "bold"),
+        )
+        titulo_label.grid_configure(columnspan=5, padx=24, pady=(20, 0))
+        subtitulo_label.configure(
+            text="Ingresa un RUT y revisa en un flujo mas claro la validacion, el resultado clave, la grafica y el desarrollo de defensa.",
+            text_color=self.colores["texto_sec"],
+            font=("Segoe UI", 12),
+            wraplength=950,
+            justify="left",
+        )
+        subtitulo_label.grid_configure(columnspan=5, padx=24, pady=(8, 16))
+        rut_label.configure(text="RUT", text_color=self.colores["texto"], font=("Segoe UI Semibold", 11))
+        rut_label.grid_configure(padx=(24, 8), pady=(0, 14))
+        self.rut_entry.configure(
+            height=40,
+            corner_radius=12,
+            fg_color="#fffdfa",
+            border_color=self.colores["borde"],
+            text_color=self.colores["texto"],
+            font=("Segoe UI", 13),
+        )
+        self.rut_entry.grid_configure(pady=(0, 14))
+        self.rut_entry.bind("<Return>", lambda event: self._analizar())
+        boton_analizar.configure(
+            height=40,
+            corner_radius=12,
+            fg_color=self.colores["acento"],
+            hover_color=self.colores["acento_oscuro"],
+            font=("Segoe UI Semibold", 12),
+        )
+        boton_analizar.grid_configure(padx=(0, 10), pady=(0, 14))
+        self.estado_var.set("Listo para analizar. Ejemplo: 12.345.678-5")
+        self.estado_badge.configure(
+            text_color="#fffaf4",
+            fg_color=self.colores["aviso"],
+            corner_radius=12,
+            font=("Segoe UI Semibold", 13),
+            justify="left",
+            wraplength=320,
+            padx=12,
+            pady=10,
+        )
+        self.estado_badge.grid_configure(column=4, padx=(12, 24), pady=(0, 14), sticky="e")
+
+        self.boton_limpiar = ctk.CTkButton(
+            encabezado,
+            text="Limpiar",
+            command=self._limpiar_analisis,
+            height=40,
+            corner_radius=12,
+            fg_color="#eadfce",
+            hover_color="#dfcfb7",
+            text_color=self.colores["texto"],
+            font=("Segoe UI Semibold", 12),
+        )
+        self.boton_limpiar.grid(row=2, column=3, sticky="w", pady=(0, 14))
+
+        chips = ctk.CTkFrame(encabezado, fg_color="transparent")
+        chips.grid(row=3, column=0, columnspan=5, sticky="w", padx=24, pady=(0, 18))
+        for indice, texto in enumerate(
+            [
+                "1. Validar RUT",
+                "2. Leer la canónica",
+                "3. Revisar la función",
+                "4. Completar la defensa",
+            ]
+        ):
+            ctk.CTkLabel(
+                chips,
+                text=texto,
+                text_color=self.colores["texto"],
+                fg_color="#f8f2e8",
+                corner_radius=12,
+                padx=10,
+                pady=6,
+                font=("Segoe UI Semibold", 10),
+            ).grid(row=0, column=indice, padx=(0, 8), sticky="w")
+
+        franja_resumen = ctk.CTkFrame(contenedor, fg_color="transparent")
+        franja_resumen.grid(row=1, column=0, sticky="ew", pady=(16, 14))
+        franja_resumen.columnconfigure((0, 1, 2, 3), weight=1)
+        self._crear_metricas(franja_resumen)
+
+        resumen_card = ctk.CTkFrame(
+            contenedor,
+            fg_color=self.colores["panel"],
+            corner_radius=16,
+            border_width=1,
+            border_color=self.colores["borde"],
+        )
+        resumen_card.grid(row=2, column=0, sticky="ew", pady=(0, 14), padx=(0, 0))
         resumen_card.columnconfigure(0, weight=1)
         ctk.CTkLabel(
             resumen_card,
-            text="Resumen de resultados",
-            text_color="#4e4035",
-            font=("Segoe UI Semibold", 11),
-        ).grid(row=0, column=0, sticky="w", pady=(0, 8))
+            text="Lectura rapida del resultado",
+            text_color=self.colores["texto"],
+            font=("Segoe UI Semibold", 13),
+        ).grid(row=0, column=0, sticky="w", padx=18, pady=(16, 6))
         self.resumen_label = ctk.CTkLabel(
             resumen_card,
             text="Sin análisis ejecutado.",
-            text_color="#2d241d",
-            wraplength=1000,
+            text_color=self.colores["texto_sec"],
+            wraplength=1080,
             anchor="w",
+            justify="left",
+            font=("Segoe UI", 12),
         )
-        self.resumen_label.grid(row=1, column=0, sticky="ew")
+        self.resumen_label.grid(row=1, column=0, sticky="ew", padx=18, pady=(0, 18))
 
         self.notebook = ttk.Notebook(contenedor)
-        self.notebook.grid(row=2, column=0, sticky="nsew")
+        self.notebook.grid(row=3, column=0, sticky="nsew")
 
         self.tab_resumen = ttk.Frame(self.notebook, padding=10)
         self.tab_conicas = ttk.Frame(self.notebook, padding=10)
@@ -119,48 +258,129 @@ class App:
         self._crear_tab_resumen()
         self._crear_tab_conicas()
         self._crear_tab_funciones()
+        self._limpiar_analisis()
 
     def _crear_tab_resumen(self):
         self.tab_resumen.columnconfigure(0, weight=1)
-        self.tab_resumen.rowconfigure(0, weight=1)
-        self.texto_resumen = ScrolledText(
+        self.tab_resumen.rowconfigure(1, weight=1)
+        intro = self._crear_panel_lateral(
             self.tab_resumen,
-            wrap="word",
-            font=("Consolas", 10),
-            bg="#fffdf8",
-            fg="#2d241d",
+            "Desarrollo completo de validacion y resumen",
+            "Usa esta pestaña para explicar el procedimiento paso a paso. La franja superior resume el resultado y aqui­ queda el detalle.",
         )
-        self.texto_resumen.grid(row=0, column=0, sticky="nsew")
+        intro.grid(row=0, column=0, sticky="ew", pady=(0, 10))
+        self.tarjetas_resumen = self._crear_contenedor_tarjetas(self.tab_resumen)
+        self.tarjetas_resumen.grid(row=1, column=0, sticky="nsew")
+
+    def _crear_metricas(self, parent):
+        definiciones = [
+            ("rut", "RUT", "Pendiente"),
+            ("conica", "Cónica", "Sin analizar"),
+            ("canonica", "Forma canónica", "Sin analizar"),
+            ("funcion", "Función", "Sin analizar"),
+        ]
+        for columna, (clave, titulo, valor_inicial) in enumerate(definiciones):
+            tarjeta = ctk.CTkFrame(
+                parent,
+                fg_color=self.colores["panel"],
+                corner_radius=14,
+                border_width=1,
+                border_color=self.colores["borde"],
+            )
+            tarjeta.grid(row=0, column=columna, sticky="ew", padx=6)
+            ctk.CTkLabel(
+                tarjeta,
+                text=titulo,
+                text_color=self.colores["texto_sec"],
+                font=("Segoe UI Semibold", 10),
+            ).grid(row=0, column=0, sticky="w", padx=14, pady=(12, 2))
+            valor = ctk.CTkLabel(
+                tarjeta,
+                text=valor_inicial,
+                text_color=self.colores["texto"],
+                font=("Segoe UI Semibold", 15),
+                wraplength=220,
+                justify="left",
+            )
+            valor.grid(row=1, column=0, sticky="w", padx=14, pady=(0, 12))
+            self.metricas[clave] = valor
+
+    def _crear_panel_lateral(self, parent, titulo, descripcion):
+        panel = ctk.CTkFrame(
+            parent,
+            fg_color=self.colores["panel"],
+            corner_radius=14,
+            border_width=1,
+            border_color=self.colores["borde"],
+        )
+        titulo_label = ctk.CTkLabel(
+            panel,
+            text=titulo,
+            text_color=self.colores["texto"],
+            font=("Segoe UI Semibold", 12),
+        )
+        titulo_label.grid(row=0, column=0, sticky="w", padx=14, pady=(14, 4))
+        titulo_label._persistir_panel = True
+        descripcion_label = ctk.CTkLabel(
+            panel,
+            text=descripcion,
+            text_color=self.colores["texto_sec"],
+            font=("Segoe UI", 10),
+            wraplength=360,
+            justify="left",
+        )
+        descripcion_label.grid(row=1, column=0, sticky="w", padx=14, pady=(0, 10))
+        descripcion_label._persistir_panel = True
+        return panel
 
     def _crear_tab_conicas(self):
         self.tab_conicas.columnconfigure(0, weight=3)
         self.tab_conicas.columnconfigure(1, weight=2)
         self.tab_conicas.rowconfigure(0, weight=1)
 
-        self.texto_conicas = ScrolledText(
-            self.tab_conicas,
-            wrap="word",
-            font=("Consolas", 10),
-            bg="#fffdf8",
-            fg="#2d241d",
-        )
-        self.texto_conicas.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+        self.tarjetas_conicas = self._crear_contenedor_tarjetas(self.tab_conicas)
+        self.tarjetas_conicas.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
 
         panel_derecho = ctk.CTkFrame(self.tab_conicas, fg_color="transparent")
         panel_derecho.grid(row=0, column=1, sticky="nsew")
         panel_derecho.columnconfigure(0, weight=1)
-        panel_derecho.rowconfigure(0, weight=3)
-        panel_derecho.rowconfigure(1, weight=2)
+        panel_derecho.rowconfigure(0, weight=1, minsize=460)
+        self.panel_derecho_conicas = panel_derecho
+
+        panel_grafico = self._crear_panel_lateral(
+            panel_derecho,
+            "Grafico de la conica",
+            "Arrastra para mover la vista y usa la rueda del mouse para acercar o alejar.",
+        )
+        panel_grafico.grid(row=0, column=0, sticky="nsew")
+        panel_grafico.columnconfigure(0, weight=1)
+        panel_grafico.columnconfigure(1, weight=0)
+        panel_grafico.rowconfigure(2, weight=1, minsize=360)
+        self.panel_grafico_conica = panel_grafico
+        self.descripcion_grafico_conica = panel_grafico.winfo_children()[1]
+        self.boton_grafico_conica = ctk.CTkButton(
+            panel_grafico,
+            text="Ocultar",
+            width=96,
+            height=30,
+            corner_radius=10,
+            fg_color="#eadfce",
+            hover_color="#dfcfb7",
+            text_color=self.colores["texto"],
+            font=("Segoe UI Semibold", 11),
+            command=self._toggle_grafico_conica,
+        )
+        self.boton_grafico_conica.grid(row=0, column=1, rowspan=2, sticky="e", padx=14, pady=(12, 8))
 
         self.canvas_conica = tk.Canvas(
-            panel_derecho,
+            panel_grafico,
             width=520,
             height=420,
-            bg="#fffdf8",
+            bg="#fffdfa",
             highlightthickness=1,
-            highlightbackground="#cbbca8",
+            highlightbackground=self.colores["borde"],
         )
-        self.canvas_conica.grid(row=0, column=0, sticky="nsew")
+        self.canvas_conica.grid(row=2, column=0, sticky="nsew", padx=14, pady=(0, 14))
         self.canvas_conica.bind("<Configure>", self._on_canvas_conica_resize)
         self.canvas_conica.bind("<ButtonPress-1>", lambda event: self._inicio_arrastre(event, "conica"))
         self.canvas_conica.bind("<B1-Motion>", lambda event: self._mover_arrastre(event, "conica"))
@@ -169,41 +389,58 @@ class App:
         self.canvas_conica.bind("<Button-4>", lambda event: self._zoom(event, "conica"))
         self.canvas_conica.bind("<Button-5>", lambda event: self._zoom(event, "conica"))
 
-        self.frame_inputs_conica = ctk.CTkFrame(panel_derecho, fg_color="#fffdf8", corner_radius=6)
-        self.frame_inputs_conica.grid(row=1, column=0, sticky="nsew", pady=(10, 0), padx=(0, 0))
+        self.frame_inputs_conica = ctk.CTkFrame(self.tab_conicas, fg_color="transparent")
         self.frame_inputs_conica.columnconfigure(1, weight=1)
-        ctk.CTkLabel(self.frame_inputs_conica, text="Campos para completar durante la defensa", font=("Segoe UI Semibold", 11), text_color="#4e4035").grid(row=0, column=0, columnspan=2, sticky="w", pady=(0,8))
 
     def _crear_tab_funciones(self):
         self.tab_funciones.columnconfigure(0, weight=3)
         self.tab_funciones.columnconfigure(1, weight=2)
         self.tab_funciones.rowconfigure(0, weight=1)
 
-        self.texto_funciones = ScrolledText(
-            self.tab_funciones,
-            wrap="word",
-            font=("Consolas", 10),
-            bg="#fffdf8",
-            fg="#2d241d",
-        )
-        self.texto_funciones.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+        self.tarjetas_funciones = self._crear_contenedor_tarjetas(self.tab_funciones)
+        self.tarjetas_funciones.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
 
         panel_derecho = ctk.CTkFrame(self.tab_funciones, fg_color="transparent")
         panel_derecho.grid(row=0, column=1, sticky="nsew")
         panel_derecho.columnconfigure(0, weight=1)
-        panel_derecho.rowconfigure(0, weight=3)
-        panel_derecho.rowconfigure(1, weight=2)
-        panel_derecho.rowconfigure(2, weight=2)
+        panel_derecho.rowconfigure(0, weight=4, minsize=360)
+        panel_derecho.rowconfigure(2, weight=2, minsize=260)
+        self.panel_derecho_funciones = panel_derecho
+
+        panel_grafico = self._crear_panel_lateral(
+            panel_derecho,
+            "Grafico de la funcion",
+            "Combina este panel con la tabla para leer mejor el punto critico y los limites laterales.",
+        )
+        panel_grafico.grid(row=0, column=0, sticky="nsew")
+        panel_grafico.columnconfigure(0, weight=1)
+        panel_grafico.columnconfigure(1, weight=0)
+        panel_grafico.rowconfigure(2, weight=1, minsize=280)
+        self.panel_grafico_funcion = panel_grafico
+        self.descripcion_grafico_funcion = panel_grafico.winfo_children()[1]
+        self.boton_grafico_funcion = ctk.CTkButton(
+            panel_grafico,
+            text="Ocultar",
+            width=96,
+            height=30,
+            corner_radius=10,
+            fg_color="#eadfce",
+            hover_color="#dfcfb7",
+            text_color=self.colores["texto"],
+            font=("Segoe UI Semibold", 11),
+            command=self._toggle_grafico_funcion,
+        )
+        self.boton_grafico_funcion.grid(row=0, column=1, rowspan=2, sticky="e", padx=14, pady=(12, 8))
 
         self.canvas_funcion = tk.Canvas(
-            panel_derecho,
+            panel_grafico,
             width=520,
             height=320,
-            bg="#fffdf8",
+            bg="#fffdfa",
             highlightthickness=1,
-            highlightbackground="#cbbca8",
+            highlightbackground=self.colores["borde"],
         )
-        self.canvas_funcion.grid(row=0, column=0, sticky="nsew")
+        self.canvas_funcion.grid(row=2, column=0, sticky="nsew", padx=14, pady=(0, 14))
         self.canvas_funcion.bind("<Configure>", self._on_canvas_funcion_resize)
         self.canvas_funcion.bind("<ButtonPress-1>", lambda event: self._inicio_arrastre(event, "funcion"))
         self.canvas_funcion.bind("<B1-Motion>", lambda event: self._mover_arrastre(event, "funcion"))
@@ -212,24 +449,49 @@ class App:
         self.canvas_funcion.bind("<Button-4>", lambda event: self._zoom(event, "funcion"))
         self.canvas_funcion.bind("<Button-5>", lambda event: self._zoom(event, "funcion"))
 
-        self.frame_inputs_funcion = ctk.CTkFrame(panel_derecho, fg_color="#fffdf8", corner_radius=6)
-        self.frame_inputs_funcion.grid(row=1, column=0, sticky="nsew", pady=(10, 10), padx=(0,0))
+        self.frame_inputs_funcion = ctk.CTkFrame(self.tab_funciones, fg_color="transparent")
         self.frame_inputs_funcion.columnconfigure(1, weight=1)
-        ctk.CTkLabel(self.frame_inputs_funcion, text="Campos para completar durante la defensa", font=("Segoe UI Semibold", 11), text_color="#4e4035").grid(row=0, column=0, columnspan=2, sticky="w", pady=(0,8))
+
+        panel_tabla = self._crear_panel_lateral(
+            panel_derecho,
+            "Tabla de apoyo",
+            "La fila del punto critico queda resaltada para facilitar la lectura.",
+        )
+        panel_tabla.grid(row=2, column=0, sticky="nsew", pady=(10, 0))
+        panel_tabla.columnconfigure(0, weight=1)
+        panel_tabla.columnconfigure(1, weight=0)
+        panel_tabla.rowconfigure(2, weight=1, minsize=180)
+        self.panel_tabla_apoyo = panel_tabla
+        self.descripcion_tabla_apoyo = panel_tabla.winfo_children()[1]
+        self.boton_tabla_apoyo = ctk.CTkButton(
+            panel_tabla,
+            text="Ocultar",
+            width=96,
+            height=30,
+            corner_radius=10,
+            fg_color="#eadfce",
+            hover_color="#dfcfb7",
+            text_color=self.colores["texto"],
+            font=("Segoe UI Semibold", 11),
+            command=self._toggle_tabla_apoyo,
+        )
+        self.boton_tabla_apoyo.grid(row=0, column=1, rowspan=2, sticky="e", padx=14, pady=(12, 8))
 
         self.tabla_valores = ttk.Treeview(
-            panel_derecho,
+            panel_tabla,
             columns=("x", "lado", "fx"),
             show="headings",
             height=8,
         )
         self.tabla_valores.heading("x", text="x")
-        self.tabla_valores.heading("lado", text="Posición")
+        self.tabla_valores.heading("lado", text="Posicion")
         self.tabla_valores.heading("fx", text="f(x)")
         self.tabla_valores.column("x", width=90, anchor="center")
         self.tabla_valores.column("lado", width=140, anchor="center")
         self.tabla_valores.column("fx", width=120, anchor="center")
-        self.tabla_valores.grid(row=2, column=0, sticky="nsew")
+        self.tabla_valores.tag_configure("critico", background="#f9ecd3")
+        self.tabla_valores.tag_configure("normal", background="#fffdfa")
+        self.tabla_valores.grid(row=2, column=0, sticky="nsew", padx=14, pady=(0, 14))
 
     def _analizar(self):
         rut_input = self.rut_var.get().strip()
@@ -274,8 +536,19 @@ class App:
             )
             self.estado_var.set("Análisis completo. Revise procedimiento, gráficos e inputs de defensa.")
 
+            self._actualizar_estado_visual(
+                "Análisis completo. Revisa el resumen rápido y luego entra a las pestañas para el desarrollo y la defensa.",
+                "exito",
+            )
+            self._actualizar_metricas(
+                rut="Válido",
+                conica=reporte_conica.tipo_conica,
+                canonica=self._resumir_forma_canonica(datos_canonica),
+                funcion=analisis_funcion["funcion_info"]["tipo_discontinuidad"],
+            )
+
             self._escribir_texto(
-                self.texto_resumen,
+                self.tarjetas_resumen,
                 "\n".join(
                     [
                         "\n".join(resumen_validacion),
@@ -293,7 +566,7 @@ class App:
             )
 
             self._escribir_texto(
-                self.texto_conicas,
+                self.tarjetas_conicas,
                 "\n".join(
                     [
                         "SECCIÓN CÓNICAS",
@@ -317,7 +590,7 @@ class App:
             )
 
             self._escribir_texto(
-                self.texto_funciones,
+                self.tarjetas_funciones,
                 "\n".join(
                     [
                         "SECCIÓN FUNCIONES POR TRAMOS",
@@ -351,15 +624,96 @@ class App:
             self.current_datos_canonica = datos_canonica
             self.current_analisis_funcion = analisis_funcion
         except Exception as error:
+            self._actualizar_estado_visual("Se produjo un error al procesar el análisis.", "error")
+            self._actualizar_metricas(
+                rut="Error",
+                conica="Sin resultado",
+                canonica="Sin resultado",
+                funcion="Sin resultado",
+            )
             self.estado_var.set("Se produjo un error al procesar el análisis.")
             messagebox.showerror("Error de análisis", str(error))
 
+    def _actualizar_estado_visual(self, mensaje, estado):
+        self.estado_var.set(mensaje)
+        colores_estado = {
+            "exito": self.colores["exito"],
+            "error": self.colores["error"],
+            "aviso": self.colores["aviso"],
+        }
+        if hasattr(self, "estado_badge"):
+            self.estado_badge.configure(fg_color=colores_estado.get(estado, self.colores["aviso"]))
+
+    def _actualizar_metricas(self, rut=None, conica=None, canonica=None, funcion=None):
+        valores = {
+            "rut": rut,
+            "conica": conica,
+            "canonica": canonica,
+            "funcion": funcion,
+        }
+        for clave, valor in valores.items():
+            if valor is not None and clave in self.metricas:
+                self.metricas[clave].configure(text=valor)
+
+    def _resumir_forma_canonica(self, datos_canonica):
+        if not datos_canonica:
+            return "No disponible"
+        forma = self._limpiar_texto(datos_canonica.get("forma_canonica", "No disponible"))
+        return forma if len(forma) <= 44 else f"{forma[:41]}..."
+
+    def _limpiar_analisis(self):
+        self.rut_var.set("")
+        self._actualizar_estado_visual("Listo para analizar. Ejemplo: 12.345.678-5", "aviso")
+        self.resumen_label.configure(text="Aquí aparecerá un resumen compacto del RUT, la cónica y la función por tramos.")
+        self._actualizar_metricas(
+            rut="Pendiente",
+            conica="Sin analizar",
+            canonica="Sin analizar",
+            funcion="Sin analizar",
+        )
+        self._escribir_texto(self.tarjetas_resumen, "Sin análisis ejecutado.")
+        self._escribir_texto(self.tarjetas_conicas, "Sin datos de canonicas.")
+        self._escribir_texto(self.tarjetas_funciones, "Sin datos de funciones por tramos.")
+        self._reiniciar_canvas(self.canvas_conica, "Canonica no disponible")
+        self._reiniciar_canvas(self.canvas_funcion, "Función no disponible")
+        self._crear_campos_vacios(
+            self.frame_inputs_conica,
+            ["Centro", "Vértices", "Focos", "Ejes", "Asíntotas o directriz"],
+        )
+        self._crear_campos_vacios(
+            self.frame_inputs_funcion,
+            [
+                "Límite por izquierda",
+                "Límite por derecha",
+                "¿Existe el límite?",
+                "Valor de la función en a",
+                "¿Es continua?",
+                "Tipo de discontinuidad",
+                "Justificación escrita",
+            ],
+        )
+        self._actualizar_tabla([])
+        self.current_reporte_conica = None
+        self.current_datos_canonica = None
+        self.current_analisis_funcion = None
+        self.current_conica_limites = None
+        self.current_funcion_limites = None
+        if hasattr(self, "rut_entry"):
+            self.rut_entry.focus_set()
+
     def _cargar_estado_invalido(self, texto_validacion):
+        self._actualizar_estado_visual("RUT inválido. Revisa formato y dígito verificador.", "error")
+        self._actualizar_metricas(
+            rut="Inválido",
+            conica="Sin resultado",
+            canonica="Sin resultado",
+            funcion="Sin resultado",
+        )
         self.estado_var.set("RUT inválido. Revise formato y dígito verificador.")
         self.resumen_label.configure(text="No se pudo continuar con el análisis matemático.")
-        self._escribir_texto(self.texto_resumen, texto_validacion)
-        self._escribir_texto(self.texto_conicas, "Sin datos de cónicas.")
-        self._escribir_texto(self.texto_funciones, "Sin datos de funciones por tramos.")
+        self._escribir_texto(self.tarjetas_resumen, texto_validacion)
+        self._escribir_texto(self.tarjetas_conicas, "Sin datos de cónicas.")
+        self._escribir_texto(self.tarjetas_funciones, "Sin datos de funciones por tramos.")
         self._reiniciar_canvas(self.canvas_conica, "Cónica no disponible")
         self._reiniciar_canvas(self.canvas_funcion, "Función no disponible")
         self._crear_campos_vacios(
@@ -517,22 +871,22 @@ class App:
             def evaluar(x):
                 if valor_absoluto(x - a) < 1e-12:
                     raise ValueError("Función no definida en a.")
-                return (x ** 2) + 1
+                return x + datos_rut["d1"]
 
             return evaluar
 
         if residuo == 1:
             def evaluar(x):
-                if x <= a:
-                    return (2 * x) + 1
-                return x + 5
+                if x < a:
+                    return x + datos_rut["d2"]
+                return x + datos_rut["d4"]
 
             return evaluar
 
         def evaluar(x):
             if valor_absoluto(x - a) < 1e-12:
                 raise ValueError("Función no definida en a.")
-            return 1 / (x - a)
+            return (datos_rut["d5"] + 1) / (x - a)
 
         return evaluar
 
@@ -923,7 +1277,11 @@ class App:
         canvas.delete("all")
         a = analisis_funcion["punto_critico"]
         tipo = analisis_funcion["funcion_info"]["tipo_discontinuidad"]
-        limites = self.current_funcion_limites if self.current_funcion_limites is not None else (a - 4, a + 4, -8, 12)
+        limites = (
+            self.current_funcion_limites
+            if self.current_funcion_limites is not None
+            else self._calcular_limites_funcion(analisis_funcion)
+        )
         if self.current_funcion_limites is None:
             self.current_funcion_limites = limites
         mapper = self._crear_transformador(canvas, limites)
@@ -934,9 +1292,9 @@ class App:
             for indice in range(161):
                 x = a - 4 + (indice * 0.05)
                 if valor_absoluto(x - a) > 1e-6:
-                    puntos.append((x, (x ** 2) + 1))
+                    puntos.append((x, x + analisis_funcion["funcion_info"]["parametros"]["d1"]))
             self._dibujar_curva(canvas, mapper, puntos, "#d46a00")
-            x, y = mapper(a, (a ** 2) + 1)
+            x, y = mapper(a, a + analisis_funcion["funcion_info"]["parametros"]["d1"])
             canvas.create_oval(x - 6, y - 6, x + 6, y + 6, outline="#d46a00", width=2)
         elif "Salto" in tipo:
             izquierda = []
@@ -944,16 +1302,16 @@ class App:
             for indice in range(81):
                 x_izq = a - 4 + (indice * 0.05)
                 x_der = a + (indice * 0.05)
-                if x_izq <= a:
-                    izquierda.append((x_izq, (2 * x_izq) + 1))
-                if x_der > a:
-                    derecha.append((x_der, x_der + 5))
+                if x_izq < a:
+                    izquierda.append((x_izq, x_izq + analisis_funcion["funcion_info"]["parametros"]["d2"]))
+                if x_der >= a:
+                    derecha.append((x_der, x_der + analisis_funcion["funcion_info"]["parametros"]["d4"]))
             self._dibujar_curva(canvas, mapper, izquierda, "#d46a00")
             self._dibujar_curva(canvas, mapper, derecha, "#355c7d")
-            x1, y1 = mapper(a, (2 * a) + 1)
-            x2, y2 = mapper(a, a + 5)
-            canvas.create_oval(x1 - 5, y1 - 5, x1 + 5, y1 + 5, fill="#d46a00", outline="#d46a00")
-            canvas.create_oval(x2 - 6, y2 - 6, x2 + 6, y2 + 6, outline="#355c7d", width=2)
+            x1, y1 = mapper(a, a + analisis_funcion["funcion_info"]["parametros"]["d2"])
+            x2, y2 = mapper(a, a + analisis_funcion["funcion_info"]["parametros"]["d4"])
+            canvas.create_oval(x1 - 6, y1 - 6, x1 + 6, y1 + 6, outline="#d46a00", width=2)
+            canvas.create_oval(x2 - 5, y2 - 5, x2 + 5, y2 + 5, fill="#355c7d", outline="#355c7d")
         else:
             izquierda = []
             derecha = []
@@ -961,9 +1319,9 @@ class App:
                 x_izq = a - 4 + (indice * 0.03)
                 x_der = a + 0.06 + (indice * 0.03)
                 if x_izq < a - 0.06:
-                    izquierda.append((x_izq, 1 / (x_izq - a)))
+                    izquierda.append((x_izq, analisis_funcion["funcion_info"]["parametros"]["d5_mas_1"] / (x_izq - a)))
                 if x_der > a + 0.06:
-                    derecha.append((x_der, 1 / (x_der - a)))
+                    derecha.append((x_der, analisis_funcion["funcion_info"]["parametros"]["d5_mas_1"] / (x_der - a)))
             self._dibujar_curva(canvas, mapper, izquierda, "#d46a00")
             self._dibujar_curva(canvas, mapper, derecha, "#355c7d")
             x1, _ = mapper(a, 0)
@@ -978,6 +1336,47 @@ class App:
             font=("Segoe UI Semibold", 10),
         )
 
+    def _calcular_limites_funcion(self, analisis_funcion):
+        a = analisis_funcion["punto_critico"]
+        tipo = analisis_funcion["funcion_info"]["tipo_discontinuidad"]
+        xmin = a - 4
+        xmax = a + 4
+        valores_y = []
+
+        if "Removible" in tipo:
+            for indice in range(161):
+                x = xmin + (indice * 0.05)
+                if valor_absoluto(x - a) > 1e-6:
+                    valores_y.append(x + analisis_funcion["funcion_info"]["parametros"]["d1"])
+        elif "Salto" in tipo:
+            for indice in range(81):
+                x_izq = xmin + (indice * 0.05)
+                x_der = a + (indice * 0.05)
+                if x_izq < a:
+                    valores_y.append(x_izq + analisis_funcion["funcion_info"]["parametros"]["d2"])
+                if x_der >= a:
+                    valores_y.append(x_der + analisis_funcion["funcion_info"]["parametros"]["d4"])
+        else:
+            for indice in range(132):
+                x_izq = xmin + (indice * 0.03)
+                x_der = a + 0.06 + (indice * 0.03)
+                if x_izq < a - 0.06:
+                    y_izq = analisis_funcion["funcion_info"]["parametros"]["d5_mas_1"] / (x_izq - a)
+                    if valor_absoluto(y_izq) <= 15:
+                        valores_y.append(y_izq)
+                if x_der > a + 0.06:
+                    y_der = analisis_funcion["funcion_info"]["parametros"]["d5_mas_1"] / (x_der - a)
+                    if valor_absoluto(y_der) <= 15:
+                        valores_y.append(y_der)
+
+        if not valores_y:
+            return (xmin, xmax, -8, 12)
+
+        ymin = min(valores_y)
+        ymax = max(valores_y)
+        margen = max((ymax - ymin) * 0.15, 2)
+        return (xmin, xmax, ymin - margen, ymax + margen)
+
     def _on_canvas_conica_resize(self, event):
         if self.current_reporte_conica and self.current_datos_canonica:
             self.canvas_conica.config(width=event.width, height=event.height)
@@ -987,6 +1386,51 @@ class App:
         if self.current_analisis_funcion:
             self.canvas_funcion.config(width=event.width, height=event.height)
             self._dibujar_funcion(self.current_analisis_funcion)
+
+    def _toggle_grafico_conica(self):
+        self.grafico_conica_expandido = not self.grafico_conica_expandido
+        if self.grafico_conica_expandido:
+            self.descripcion_grafico_conica.grid()
+            self.canvas_conica.grid()
+            self.panel_grafico_conica.rowconfigure(2, weight=1, minsize=360)
+            self.panel_derecho_conicas.rowconfigure(0, weight=1, minsize=460)
+            self.boton_grafico_conica.configure(text="Ocultar")
+        else:
+            self.descripcion_grafico_conica.grid_remove()
+            self.canvas_conica.grid_remove()
+            self.panel_grafico_conica.rowconfigure(2, weight=0, minsize=0)
+            self.panel_derecho_conicas.rowconfigure(0, weight=0, minsize=72)
+            self.boton_grafico_conica.configure(text="Mostrar")
+
+    def _toggle_grafico_funcion(self):
+        self.grafico_funcion_expandido = not self.grafico_funcion_expandido
+        if self.grafico_funcion_expandido:
+            self.descripcion_grafico_funcion.grid()
+            self.canvas_funcion.grid()
+            self.panel_grafico_funcion.rowconfigure(2, weight=1, minsize=280)
+            self.panel_derecho_funciones.rowconfigure(0, weight=4, minsize=360)
+            self.boton_grafico_funcion.configure(text="Ocultar")
+        else:
+            self.descripcion_grafico_funcion.grid_remove()
+            self.canvas_funcion.grid_remove()
+            self.panel_grafico_funcion.rowconfigure(2, weight=0, minsize=0)
+            self.panel_derecho_funciones.rowconfigure(0, weight=0, minsize=72)
+            self.boton_grafico_funcion.configure(text="Mostrar")
+
+    def _toggle_tabla_apoyo(self):
+        self.tabla_apoyo_expandida = not self.tabla_apoyo_expandida
+        if self.tabla_apoyo_expandida:
+            self.descripcion_tabla_apoyo.grid()
+            self.tabla_valores.grid()
+            self.panel_tabla_apoyo.rowconfigure(2, weight=1, minsize=180)
+            self.panel_derecho_funciones.rowconfigure(2, weight=2, minsize=260)
+            self.boton_tabla_apoyo.configure(text="Ocultar")
+        else:
+            self.descripcion_tabla_apoyo.grid_remove()
+            self.tabla_valores.grid_remove()
+            self.panel_tabla_apoyo.rowconfigure(2, weight=0, minsize=0)
+            self.panel_derecho_funciones.rowconfigure(2, weight=0, minsize=72)
+            self.boton_tabla_apoyo.configure(text="Mostrar")
 
     def _pixel_a_coordenada(self, canvas, px, py, limites):
         xmin, xmax, ymin, ymax = limites
@@ -1257,9 +1701,12 @@ class App:
 
     def _crear_campos_vacios(self, frame, etiquetas):
         for child in frame.winfo_children():
+            if getattr(child, "_persistir_panel", False):
+                continue
             child.destroy()
 
-        for fila, etiqueta in enumerate(etiquetas, start=1):
+        fila_inicial = 2
+        for fila, etiqueta in enumerate(etiquetas, start=fila_inicial):
             ctk.CTkLabel(frame, text=etiqueta, text_color="#2d241d").grid(row=fila, column=0, sticky="w", pady=4)
             ctk.CTkEntry(frame, width=400).grid(row=fila, column=1, sticky="ew", padx=(10, 0), pady=4)
 
@@ -1269,17 +1716,398 @@ class App:
 
         for fila in filas:
             fx = "No definida" if fila["f(x)"] is None else self._formatear_numero(fila["f(x)"])
+            etiqueta = "critico" if fila.get("tipo") == "critico" else "normal"
             self.tabla_valores.insert(
                 "",
                 "end",
                 values=(self._formatear_numero(fila["x"]), fila["posicion"], fx),
+                tags=(etiqueta,),
             )
 
     def _escribir_texto(self, widget, contenido):
-        widget.config(state="normal")
-        widget.delete("1.0", tk.END)
-        widget.insert(tk.END, self._limpiar_texto(contenido))
-        widget.config(state="disabled")
+        if hasattr(widget, 'limpiar') and hasattr(widget, 'agregar_tarjeta'):
+            # Es un contenedor de tarjetas
+            self._agregar_tarjetas(widget, contenido)
+        else:
+            # Es un ScrolledText (mantener compatibilidad)
+            widget.config(state="normal")
+            widget.delete("1.0", tk.END)
+            widget.insert(tk.END, self._limpiar_texto(contenido))
+            widget.config(state="disabled")
+
+    def _crear_contenedor_tarjetas(self, parent):
+        """Crea un contenedor scrollable para tarjetas"""
+        contenedor = ctk.CTkFrame(parent, fg_color="transparent")
+        contenedor.grid(row=0, column=0, sticky="nsew")
+        contenedor.columnconfigure(0, weight=1)
+        contenedor.rowconfigure(0, weight=1)
+        
+        # Canvas para scroll
+        canvas = tk.Canvas(contenedor, bg="#fffdfa", highlightthickness=0)
+        canvas.grid(row=0, column=0, sticky="nsew")
+        
+        # Frame interno que contendrá las tarjetas
+        frame_tarjetas = ctk.CTkFrame(canvas, fg_color="transparent")
+        frame_tarjetas.columnconfigure(0, weight=1)
+        
+        # Crear ventana en el canvas
+        window_id = canvas.create_window(0, 0, window=frame_tarjetas, anchor="nw")
+        
+        # Scrollbar
+        scrollbar = ttk.Scrollbar(contenedor, orient="vertical", command=canvas.yview)
+        scrollbar.grid(row=0, column=1, sticky="ns")
+        canvas.config(yscrollcommand=scrollbar.set)
+        
+        # Actualizar región del scroll
+        def on_frame_configure(event=None):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+            canvas.itemconfig(window_id, width=canvas.winfo_width() - 15)
+        
+        frame_tarjetas.bind("<Configure>", on_frame_configure)
+        canvas.bind("<Configure>", on_frame_configure)
+        
+        # Bind mouse wheel
+        def on_mousewheel(event):
+            if event.delta > 0:
+                canvas.yview_scroll(-3, "units")
+            else:
+                canvas.yview_scroll(3, "units")
+        
+        canvas.bind("<MouseWheel>", on_mousewheel)
+        
+        # Guardar referencias
+        contenedor.canvas = canvas
+        contenedor.frame_tarjetas = frame_tarjetas
+        contenedor.contador_tarjetas = 0
+        contenedor.limpiar = lambda: self._limpiar_tarjetas(contenedor, frame_tarjetas)
+        contenedor.agregar_tarjeta = lambda titulo, contenido: self._agregar_tarjeta_visual(contenedor, frame_tarjetas, titulo, contenido)
+        
+        return contenedor
+
+    def _limpiar_tarjetas(self, contenedor, frame_tarjetas):
+        """Elimina todas las tarjetas del contenedor"""
+        for widget in frame_tarjetas.winfo_children():
+            widget.destroy()
+        contenedor.contador_tarjetas = 0
+
+    def _agregar_tarjeta_visual(self, contenedor, frame_tarjetas, titulo, contenido):
+        """Agrega una tarjeta visual con título y contenido"""
+        tarjeta = ctk.CTkFrame(
+            frame_tarjetas,
+            fg_color=self.colores["panel"],
+            corner_radius=12,
+            border_width=1,
+            border_color=self.colores["borde"],
+        )
+        tarjeta.grid(row=contenedor.contador_tarjetas, column=0, sticky="ew", padx=8, pady=6)
+        tarjeta.columnconfigure(0, weight=1)
+        contenedor.contador_tarjetas += 1
+        
+        # Título
+        if titulo:
+            titulo_label = ctk.CTkLabel(
+                tarjeta,
+                text=titulo,
+                text_color=self.colores["texto"],
+                font=("Segoe UI Semibold", 11),
+                anchor="w",
+                justify="left"
+            )
+            titulo_label.grid(row=0, column=0, sticky="ew", padx=12, pady=(10, 6))
+        
+        # Contenido
+        contenido_label = ctk.CTkLabel(
+            tarjeta,
+            text=self._limpiar_texto(contenido),
+            text_color=self.colores["texto"],
+            font=("Consolas", 9),
+            anchor="nw",
+            justify="left",
+            wraplength=500
+        )
+        contenido_label.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 10))
+        
+        return tarjeta
+
+    def _agregar_tarjetas(self, widget_contenedor, contenido):
+        """Divide el contenido en secciones y crea tarjetas"""
+        # Limpiar tarjetas previas
+        widget_contenedor.limpiar()
+        
+        # Dividir por secciones usando líneas que comienzan con "SECCIÓN" o números con punto
+        lineas = contenido.split("\n")
+        tarjetas_datos = []
+        titulo_actual = None
+        contenido_actual = []
+        
+        for linea in lineas:
+            linea_strip = linea.strip()
+            # Detectar títulos de sección
+            if linea_strip.startswith("SECCIÓN") or (linea_strip and linea_strip[0].isdigit() and "." in linea_strip[:3]):
+                # Guardar tarjeta anterior si existe
+                if titulo_actual or contenido_actual:
+                    tarjetas_datos.append((titulo_actual, "\n".join(contenido_actual)))
+                
+                titulo_actual = linea_strip
+                contenido_actual = []
+            elif linea_strip or contenido_actual:  # Agregar línea si no está vacía o ya hay contenido
+                contenido_actual.append(linea)
+        
+        # Guardar última tarjeta
+        if titulo_actual or contenido_actual:
+            tarjetas_datos.append((titulo_actual, "\n".join(contenido_actual)))
+        
+        # Crear tarjetas visuales
+        for titulo, contenido_tarjeta in tarjetas_datos:
+            if titulo or contenido_tarjeta.strip():
+                widget_contenedor.agregar_tarjeta(titulo, contenido_tarjeta)
+
+    def _analizar_funcion_por_tramos(self, datos_rut):
+        funcion_info = generar_funcion_por_tramos(datos_rut)
+        a = funcion_info["punto_critico"]
+        caso = funcion_info["caso"]
+        puntos_info = generar_puntos_cercanos(a)
+        tabla = evaluar_en_tabla(puntos_info, self._crear_evaluador_funcion(datos_rut))
+
+        if caso == "removible":
+            d1 = funcion_info["parametros"]["d1"]
+            limite_izq = a + d1
+            limite_der = a + d1
+            limite_existe = "Si, ambos limites laterales coinciden."
+            valor_punto = "No definida"
+            continuidad = "No"
+            justificacion = (
+                f"La expresion original tiene un factor comun x - {a} que se cancela para x != {a}, "
+                f"quedando f(x) = x + {d1}. Por eso ambos limites laterales valen "
+                f"{self._formatear_numero(limite_izq)}, pero la funcion original no esta definida en x = {a}."
+            )
+        elif caso == "salto":
+            d2 = funcion_info["parametros"]["d2"]
+            d4 = funcion_info["parametros"]["d4"]
+            limite_izq = a + d2
+            limite_der = a + d4
+            valor_punto = self._formatear_numero(limite_der)
+            if limite_izq == limite_der:
+                limite_existe = "Si, ambos limites laterales coinciden."
+                continuidad = "Si"
+                justificacion = (
+                    f"El limite por izquierda y el limite por derecha valen "
+                    f"{self._formatear_numero(limite_izq)}, y ademas f({a}) = "
+                    f"{self._formatear_numero(limite_der)}."
+                )
+            else:
+                limite_existe = "No, los limites laterales son distintos."
+                continuidad = "No"
+                justificacion = (
+                    f"El limite por izquierda vale {self._formatear_numero(limite_izq)} y el de derecha "
+                    f"vale {self._formatear_numero(limite_der)}; como no coinciden, el limite no existe."
+                )
+        else:
+            numerador = funcion_info["parametros"]["d5_mas_1"]
+            limite_izq = "-infinito"
+            limite_der = "+infinito"
+            limite_existe = "No, hay divergencia infinita."
+            valor_punto = "No definida"
+            continuidad = "No"
+            justificacion = (
+                f"La funcion {numerador}/(x - {a}) tiene numerador positivo y el denominador cambia de signo "
+                "al cruzar el punto critico, por lo que aparece una asintota vertical en x = a."
+            )
+
+        procedimiento = [
+            "1. Seleccion automatica del caso",
+            f"   d3 = {datos_rut['d3']} -> punto critico a = {a}",
+            f"   d8 = {datos_rut['d8']} -> residuo d8 % 3 = {datos_rut['d8'] % 3}",
+            f"   Regla aplicada: {self._limpiar_texto(funcion_info['regla_usada'])}",
+            "",
+            "2. Definicion de la funcion por tramos",
+            f"   {self._limpiar_texto(funcion_info['funcion_def']['izquierda'])}",
+            f"   {self._limpiar_texto(funcion_info['funcion_def']['punto'])}",
+            f"   {self._limpiar_texto(funcion_info['funcion_def']['derecha'])}",
+        ]
+        if funcion_info["funcion_def"].get("simplificada"):
+            procedimiento.append(f"   {self._limpiar_texto(funcion_info['funcion_def']['simplificada'])}")
+        procedimiento.extend(
+            [
+                "",
+                "3. Limites laterales y continuidad",
+                f"   Limite por izquierda  : {self._formatear_valor(limite_izq)}",
+                f"   Limite por derecha    : {self._formatear_valor(limite_der)}",
+                f"   Existe el limite?     : {limite_existe}",
+                f"   Valor de f(a)         : {valor_punto}",
+                f"   Es continua?          : {continuidad}",
+                f"   Tipo observado        : {funcion_info['tipo_discontinuidad']}",
+                "",
+                "4. Justificacion matematica",
+                f"   {justificacion}",
+            ]
+        )
+
+        tabla_texto = []
+        for fila in tabla:
+            fx = "No definida" if fila["f(x)"] is None else self._formatear_numero(fila["f(x)"])
+            tabla_texto.append(
+                f"   x = {self._formatear_numero(fila['x']):>8} | {fila['posicion']:<14} | f(x) = {fx}"
+            )
+
+        resumen_texto = "\n".join(
+            [
+                f"Tipo de discontinuidad: {funcion_info['tipo_discontinuidad']}",
+                f"Punto critico: a = {a}",
+                f"Limite por izquierda: {self._formatear_valor(limite_izq)}",
+                f"Limite por derecha: {self._formatear_valor(limite_der)}",
+                f"Continuidad en a: {continuidad}",
+            ]
+        )
+
+        return {
+            "funcion_info": funcion_info,
+            "punto_critico": a,
+            "tabla": tabla,
+            "procedimiento": "\n".join(procedimiento),
+            "tabla_texto": "\n".join(tabla_texto),
+            "resumen_texto": resumen_texto,
+        }
+
+    def _crear_evaluador_funcion(self, datos_rut):
+        a = datos_rut["d3"]
+        residuo = datos_rut["d8"] % 3
+
+        if residuo == 0:
+            def evaluar(x):
+                if valor_absoluto(x - a) < 1e-12:
+                    raise ValueError("Funcion no definida en a.")
+                return x + datos_rut["d1"]
+
+            return evaluar
+
+        if residuo == 1:
+            def evaluar(x):
+                if x < a:
+                    return x + datos_rut["d2"]
+                return x + datos_rut["d4"]
+
+            return evaluar
+
+        def evaluar(x):
+            if valor_absoluto(x - a) < 1e-12:
+                raise ValueError("Funcion no definida en a.")
+            return (datos_rut["d5"] + 1) / (x - a)
+
+        return evaluar
+
+    def _dibujar_funcion(self, analisis_funcion):
+        canvas = self.canvas_funcion
+        canvas.delete("all")
+        a = analisis_funcion["punto_critico"]
+        funcion_info = analisis_funcion["funcion_info"]
+        caso = funcion_info["caso"]
+        limites = (
+            self.current_funcion_limites
+            if self.current_funcion_limites is not None
+            else self._calcular_limites_funcion(analisis_funcion)
+        )
+        if self.current_funcion_limites is None:
+            self.current_funcion_limites = limites
+        mapper = self._crear_transformador(canvas, limites)
+        self._dibujar_ejes(canvas, mapper, limites, int(canvas["width"]), int(canvas["height"]))
+
+        if caso == "removible":
+            d1 = funcion_info["parametros"]["d1"]
+            puntos = []
+            for indice in range(161):
+                x = a - 4 + (indice * 0.05)
+                if valor_absoluto(x - a) > 1e-6:
+                    puntos.append((x, x + d1))
+            self._dibujar_curva(canvas, mapper, puntos, "#d46a00")
+            x_hueco, y_hueco = mapper(a, a + d1)
+            canvas.create_oval(x_hueco - 6, y_hueco - 6, x_hueco + 6, y_hueco + 6, outline="#d46a00", width=2)
+        elif caso == "salto":
+            d2 = funcion_info["parametros"]["d2"]
+            d4 = funcion_info["parametros"]["d4"]
+            izquierda = []
+            derecha = []
+            for indice in range(81):
+                x_izq = a - 4 + (indice * 0.05)
+                x_der = a + (indice * 0.05)
+                if x_izq < a:
+                    izquierda.append((x_izq, x_izq + d2))
+                derecha.append((x_der, x_der + d4))
+            self._dibujar_curva(canvas, mapper, izquierda, "#d46a00")
+            self._dibujar_curva(canvas, mapper, derecha, "#355c7d")
+            x1, y1 = mapper(a, a + d2)
+            x2, y2 = mapper(a, a + d4)
+            canvas.create_oval(x1 - 6, y1 - 6, x1 + 6, y1 + 6, outline="#d46a00", width=2)
+            canvas.create_oval(x2 - 5, y2 - 5, x2 + 5, y2 + 5, fill="#355c7d", outline="#355c7d")
+        else:
+            numerador = funcion_info["parametros"]["d5_mas_1"]
+            izquierda = []
+            derecha = []
+            for indice in range(132):
+                x_izq = a - 4 + (indice * 0.03)
+                x_der = a + 0.06 + (indice * 0.03)
+                if x_izq < a - 0.06:
+                    izquierda.append((x_izq, numerador / (x_izq - a)))
+                if x_der > a + 0.06:
+                    derecha.append((x_der, numerador / (x_der - a)))
+            self._dibujar_curva(canvas, mapper, izquierda, "#d46a00")
+            self._dibujar_curva(canvas, mapper, derecha, "#355c7d")
+            x1, _ = mapper(a, 0)
+            canvas.create_line(x1, 20, x1, int(canvas["height"]) - 20, fill="#9f7f5b", dash=(5, 4), width=2)
+
+        canvas.create_text(
+            12,
+            12,
+            anchor="nw",
+            text=f"{funcion_info['tipo_discontinuidad']} en x = {a}",
+            fill="#2d241d",
+            font=("Segoe UI Semibold", 10),
+        )
+
+    def _calcular_limites_funcion(self, analisis_funcion):
+        a = analisis_funcion["punto_critico"]
+        funcion_info = analisis_funcion["funcion_info"]
+        caso = funcion_info["caso"]
+        xmin = a - 4
+        xmax = a + 4
+        valores_y = []
+
+        if caso == "removible":
+            d1 = funcion_info["parametros"]["d1"]
+            for indice in range(161):
+                x = xmin + (indice * 0.05)
+                if valor_absoluto(x - a) > 1e-6:
+                    valores_y.append(x + d1)
+        elif caso == "salto":
+            d2 = funcion_info["parametros"]["d2"]
+            d4 = funcion_info["parametros"]["d4"]
+            for indice in range(81):
+                x_izq = xmin + (indice * 0.05)
+                x_der = a + (indice * 0.05)
+                if x_izq < a:
+                    valores_y.append(x_izq + d2)
+                valores_y.append(x_der + d4)
+        else:
+            numerador = funcion_info["parametros"]["d5_mas_1"]
+            for indice in range(132):
+                x_izq = xmin + (indice * 0.03)
+                x_der = a + 0.06 + (indice * 0.03)
+                if x_izq < a - 0.06:
+                    y_izq = numerador / (x_izq - a)
+                    if valor_absoluto(y_izq) <= 15:
+                        valores_y.append(y_izq)
+                if x_der > a + 0.06:
+                    y_der = numerador / (x_der - a)
+                    if valor_absoluto(y_der) <= 15:
+                        valores_y.append(y_der)
+
+        if not valores_y:
+            return (xmin, xmax, -8, 12)
+
+        ymin = min(valores_y)
+        ymax = max(valores_y)
+        margen = max((ymax - ymin) * 0.15, 2)
+        return (xmin, xmax, ymin - margen, ymax + margen)
 
     def _describir_reglas(self, a_inicial, b_inicial, a_final, b_final, digitos):
         d1, d2, _, _, d5, d6, d7, d8 = digitos
