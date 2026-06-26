@@ -4,8 +4,8 @@ def calcular_coeficientes(digitos , v):
     
     A= (d1+d2) / v
     B= (d3+d4) / v
-    C= (d5+d6) / v
-    D= (d7+d8) / v
+    C= -(d5+d6)
+    D= -(d7+d8)
     E= d1+d3+d5+d7
     
     return A, B, C, D, E

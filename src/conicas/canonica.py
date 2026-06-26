@@ -451,6 +451,12 @@ def _canonica_parabola(A, B, C, D, E):
     pasos.append("")
 
     if A == 0 and B != 0:
+        if C == 0:
+            pasos.append("No es posible despejar la parábola horizontal porque el coeficiente lineal C es 0.")
+            return {
+                "forma_canonica": "No fue posible obtener una forma canónica válida.",
+                "pasos": "\n".join(pasos)
+            }
         k = -D / (2 * B)
         h = (((D ** 2) / (4 * B)) - E) / C
         vertice = (h, k)
@@ -459,6 +465,12 @@ def _canonica_parabola(A, B, C, D, E):
         termino_x = formatear_termino_x(vertice[0])
         forma_canonica = f"{termino_y}² = {formatear_num(p)}{termino_x}"
     else:
+        if D == 0:
+            pasos.append("No es posible despejar la parábola vertical porque el coeficiente lineal D es 0.")
+            return {
+                "forma_canonica": "No fue posible obtener una forma canónica válida.",
+                "pasos": "\n".join(pasos)
+            }
         h = -C / (2 * A)
         k = (((C ** 2) / (4 * A)) - E) / D
         vertice = (h, k)
