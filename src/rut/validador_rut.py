@@ -32,9 +32,9 @@ def validar_formato_rut(rut_limpio):
     Valida que el RUT tenga un formato compatible con el proyecto.
 
     Para este proyecto se exige:
-        - 8 dígitos en el cuerpo del RUT.
+        - Entre 7 y 8 dígitos en el cuerpo del RUT.
         - 1 dígito verificador.
-        - Total: 9 caracteres.
+        - Luego el cuerpo se normaliza a 8 dígitos con ceros a la izquierda.
         - El cuerpo debe contener solo números.
         - El DV puede ser número o K.
 
@@ -46,11 +46,14 @@ def validar_formato_rut(rut_limpio):
         False si el formato es inválido.
     """
 
-    if len(rut_limpio) != 9:
+    if len(rut_limpio) < 8 or len(rut_limpio) > 9:
         return False
 
     cuerpo = rut_limpio[:-1]
     dv = rut_limpio[-1]
+
+    if len(cuerpo) < 7 or len(cuerpo) > 8:
+        return False
 
     if not cuerpo.isdigit():
         return False
@@ -72,7 +75,7 @@ def separar_cuerpo_dv(rut_limpio):
         cuerpo, dv
     """
 
-    cuerpo = rut_limpio[:-1]
+    cuerpo = rut_limpio[:-1].zfill(8)
     dv = rut_limpio[-1]
 
     return cuerpo, dv
@@ -106,7 +109,7 @@ def validar_rut(rut):
             "dv_ingresado": "",
             "dv_calculado": "",
             "procedimiento": "",
-            "mensaje": "Formato de RUT inválido. Para este proyecto se requiere un cuerpo de 8 dígitos y un dígito verificador."
+            "mensaje": "Formato de RUT inválido. Para este proyecto se requiere un cuerpo de 7 u 8 dígitos y un dígito verificador."
         }
 
     cuerpo, dv_ingresado = separar_cuerpo_dv(rut_limpio)
